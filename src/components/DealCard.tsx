@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ExternalLink, Star, ShieldCheck, Clock, ArrowRight, Tag, Zap } from 'lucide-react';
 import { Deal } from '@/lib/types';
-import { formatPrice, getCategoryMeta, timeAgo } from '@/lib/utils';
+import { formatPrice, getCategoryMeta, timeAgo, cleanMarkdown } from '@/lib/utils';
 
 interface DealCardProps {
   deal: Deal;
@@ -48,9 +48,12 @@ export function DealCard({ deal }: DealCardProps) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={deal.imageUrl}
-          alt={deal.title}
-          className="max-h-full max-w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+          alt={cleanMarkdown(deal.title)}
+          className="max-h-full max-w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-300 rounded-xl"
           loading="lazy"
+          onError={(e) => {
+            e.currentTarget.src = '/banner.png';
+          }}
         />
       </div>
 
@@ -73,7 +76,7 @@ export function DealCard({ deal }: DealCardProps) {
           {/* Product Title */}
           <Link href={`/deal/${deal.slug}`} className="block group-hover:text-amber-300 transition-colors">
             <h3 className="text-sm font-semibold text-slate-100 line-clamp-2 leading-snug">
-              {deal.title}
+              {cleanMarkdown(deal.title)}
             </h3>
           </Link>
 

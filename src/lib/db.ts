@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { Deal, PublishDealPayload } from './types';
-import { generateSlug } from './utils';
+import { generateSlug, cleanDealTitle, cleanMarkdown } from './utils';
 
 // Global in-memory cache to ensure instant persistence across serverless invocations
 declare global {
@@ -93,7 +93,9 @@ export function saveDeal(payload: PublishDealPayload & { imageBase64?: string })
       : 0);
   const savingsAmount = Math.max(0, Number((originalPrice - discountPrice).toFixed(2)));
   const asin = payload.asin || 'AMZ' + Math.random().toString(36).substring(2, 9).toUpperCase();
-  const slug = generateSlug(payload.title, asin);
+  const cleanTitle = cleanDealTitle(payload.title);
+  const cleanDesc = cleanMarkdown(payload.description || 'Aktuelles Top-Angebot auf Amazon mit starkem Preisnachlass.');
+  const slug = generateSlug(cleanTitle, asin);
   const dealId = `deal-${Date.now()}`;
 
   // Use Telegram image: if base64 provided, store data URL directly for 100% serverless compatibility
@@ -107,9 +109,9 @@ export function saveDeal(payload: PublishDealPayload & { imageBase64?: string })
   const newDeal: Deal = {
     id: existingIdx >= 0 ? deals[existingIdx].id : dealId,
     asin: asin.toUpperCase(),
-    title: payload.title.trim(),
+    title: cleanTitle,
     slug,
-    description: payload.description || 'Aktuelles Top-Angebot auf Amazon mit starkem Preisnachlass.',
+    description: cleanDesc,
     originalPrice,
     discountPrice,
     discountPercentage,

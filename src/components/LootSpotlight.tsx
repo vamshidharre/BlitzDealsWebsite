@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Flame, Zap, ExternalLink, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { Deal } from '@/lib/types';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, cleanMarkdown } from '@/lib/utils';
 
 interface LootSpotlightProps {
   deals: Deal[];
@@ -50,8 +50,11 @@ export function LootSpotlight({ deals }: LootSpotlightProps) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={deal.imageUrl}
-                alt={deal.title}
-                className="max-h-full max-w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+                alt={cleanMarkdown(deal.title)}
+                className="max-h-full max-w-full object-contain filter drop-shadow-md group-hover:scale-105 transition-transform duration-300 rounded-xl"
+                onError={(e) => {
+                  e.currentTarget.src = '/banner.png';
+                }}
               />
               <span className="absolute -top-2 -left-2 px-2.5 py-0.5 rounded-full text-xs font-black bg-gradient-to-r from-red-600 to-amber-600 text-white shadow-lg">
                 -{deal.discountPercentage}%
@@ -66,7 +69,7 @@ export function LootSpotlight({ deals }: LootSpotlightProps) {
 
               <Link href={`/deal/${deal.slug}`} className="block group-hover:text-amber-300 transition-colors">
                 <h3 className="text-base font-bold text-slate-100 line-clamp-2 leading-tight">
-                  {deal.title}
+                  {cleanMarkdown(deal.title)}
                 </h3>
               </Link>
 

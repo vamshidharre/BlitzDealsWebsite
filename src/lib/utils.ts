@@ -5,11 +5,37 @@ export function formatPrice(price: number, currency = '€'): string {
   return `${price.toFixed(2).replace('.', ',')} ${currency}`;
 }
 
+export function cleanMarkdown(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // remove **bold**
+    .replace(/__([^_]+)__/g, '$1')     // remove __underline__
+    .replace(/~~([^~]+)~~/g, '$1')     // remove ~~strikethrough~~
+    .replace(/\*([^*]+)\*/g, '$1')     // remove *italic*
+    .replace(/_([^_]+)_/g, '$1')       // remove _italic_
+    .replace(/`([^`]+)`/g, '$1')       // remove `code`
+    .replace(/[*_~`]/g, '')           // remove any leftover raw symbols
+    .trim();
+}
+
+export function cleanDealTitle(rawTitle: string): string {
+  if (!rawTitle) return 'Amazon Blitzdeal';
+  let title = cleanMarkdown(rawTitle);
+
+  // If title is just a generic announcement banner, strip excessive duplicate emoji stacks
+  title = title
+    .replace(/^[📉📢🔥⚡👀❌✅🎯💥⚠️\s]+/, '') // leading emoji clutter
+    .replace(/[📉📢🔥⚡👀❌✅🎯💥⚠️\s]+$/, '') // trailing emoji clutter
+    .trim();
+
+  return title || cleanMarkdown(rawTitle);
+}
+
 export function generateSlug(title: string, asin?: string): string {
-  const cleanTitle = title
+  const cleanTitle = cleanMarkdown(title)
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove German umlaut diacritics
+    .replace(/[\u0300-\u036f]/g, '') // remove diacritics
     .replace(/ä/g, 'ae')
     .replace(/ö/g, 'oe')
     .replace(/ü/g, 'ue')
