@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payload: PublishDealPayload = {
+    const payload: PublishDealPayload & { imageBase64?: string } = {
       asin: body.asin,
       title: body.title,
       description: body.description,
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       discountPrice: body.discountPrice,
       discountPercentage: body.discountPercentage,
       imageUrl: body.imageUrl,
+      imageBase64: body.imageBase64 || body.image_base64,
       affiliateUrl: body.affiliateUrl,
       category: body.category || 'tech',
       isLoot: Boolean(body.isLoot),

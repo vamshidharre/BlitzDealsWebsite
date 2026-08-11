@@ -139,6 +139,16 @@ export function DealsGrid({
             <DealCard key={deal.id} deal={deal} />
           ))}
         </div>
+      ) : initialDeals.length === 0 ? (
+        <div className="text-center py-20 bg-slate-900/40 rounded-3xl border border-slate-800 p-8 space-y-4 shadow-xl">
+          <div className="relative w-14 h-14 mx-auto flex items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+            <Sparkles className="w-7 h-7 animate-pulse" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-100">Live-Bot wartet auf neue Schnäppchen</h3>
+          <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+            Dein Affiliate-Bot scannt Telegram 24/7. Sobald neue Deals gefunden werden, werden sie vollautomatisch mit den echten Telegram-Bildern hier veröffentlicht!
+          </p>
+        </div>
       ) : (
         <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-slate-800 p-8 space-y-4">
           <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
