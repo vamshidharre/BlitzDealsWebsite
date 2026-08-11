@@ -11,11 +11,16 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Col */}
           <div className="space-y-4 md:col-span-2">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-slate-950 font-bold">
-                <Zap className="w-4 h-4 fill-slate-950" />
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-orange-500/20 border border-amber-500/30 bg-slate-900 flex items-center justify-center p-0.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/logo.png"
+                  alt="BlitzDeals Logo"
+                  className="w-full h-full object-cover rounded-[10px]"
+                />
               </div>
-              <span className="text-lg font-black tracking-tight text-white">
+              <span className="text-xl font-black tracking-tight text-white">
                 BlitzDeals<span className="text-amber-400">.de</span>
               </span>
             </Link>

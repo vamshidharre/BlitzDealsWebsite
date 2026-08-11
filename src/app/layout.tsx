@@ -23,18 +23,32 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'BlitzDeals' }],
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://blitzdeals.de'),
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png'
+  },
   openGraph: {
     title: 'BlitzDeals.de – Die besten Amazon Deals in Echtzeit',
     description:
       'Täglich die besten Rabatte, Sonderangebote und Preisfehler auf Amazon. 100% kostenlos und handverlesen.',
     siteName: 'BlitzDeals.de',
     locale: 'de_DE',
-    type: 'website'
+    type: 'website',
+    images: [
+      {
+        url: '/banner.png',
+        width: 1200,
+        height: 630,
+        alt: 'BlitzDeals.de Banner'
+      }
+    ]
   },
   twitter: {
     card: 'summary_large_image',
     title: 'BlitzDeals.de – Die besten Amazon Deals in Echtzeit',
-    description: 'Täglich die heißesten Amazon Rabatte & Preisfehler.'
+    description: 'Täglich die heißesten Amazon Rabatte & Preisfehler.',
+    images: ['/banner.png']
   },
   robots: {
     index: true,

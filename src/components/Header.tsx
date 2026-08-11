@@ -9,18 +9,21 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 transition-all duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-yellow-400 p-0.5 shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform duration-200">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <Zap className="w-5 h-5 text-amber-400 fill-amber-400 group-hover:animate-pulse" />
-            </div>
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative w-11 h-11 rounded-2xl overflow-hidden shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform duration-200 border border-amber-500/40 bg-slate-900 flex items-center justify-center p-0.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="BlitzDeals Logo"
+              className="w-full h-full object-cover rounded-[14px]"
+            />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+              <span className="text-xl font-black tracking-tight bg-gradient-to-r from-white via-amber-100 to-amber-400 bg-clip-text text-transparent">
                 BlitzDeals
               </span>
-              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm">
                 .de
               </span>
             </div>
