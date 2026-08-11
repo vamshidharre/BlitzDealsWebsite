@@ -1,8 +1,9 @@
-import React from 'react';
-import { Metadata } from 'next';
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { getDealBySlug, getAllDeals, getDealsByCategory } from '@/lib/db';
+import { Deal } from '@/lib/types';
 import { formatPrice, getCategoryMeta, timeAgo } from '@/lib/utils';
 import { JsonLdSchema } from '@/components/JsonLdSchema';
 import { SocialShare } from '@/components/SocialShare';
@@ -15,70 +16,96 @@ import {
   TrendingDown,
   Truck,
   ArrowLeft,
-  CheckCircle2,
   Clock,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 
-interface DealPageProps {
-  params: Promise<{
-    slug: string;
-  }>;
-}
+export default function DealDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const rawSlug = params?.slug as string;
+  const slug = rawSlug ? decodeURIComponent(rawSlug) : '';
 
-export async function generateMetadata({ params }: DealPageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const deal = getDealBySlug(slug);
+  const [deal, setDeal] = useState<Deal | null>(null);
+  const [relatedDeals, setRelatedDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!deal) {
-    return {
-      title: 'Angebot nicht gefunden'
-    };
+  useEffect(() => {
+    async function fetchDeal() {
+      if (!slug) return;
+      try {
+        // 1. Fetch all deals to find the matching deal and related deals
+        const res = await fetch('/api/deals', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success && data.deals) {
+          const all: Deal[] = data.deals;
+          const lowerSlug = slug.toLowerCase();
+          const found =
+            all.find(
+              (d) =>
+                d.slug.toLowerCase() === lowerSlug ||
+                d.id === slug ||
+                (d.asin && d.asin.toLowerCase() === lowerSlug) ||
+                lowerSlug.includes(d.slug.toLowerCase()) ||
+                d.slug.toLowerCase().includes(lowerSlug) ||
+                (d.asin && lowerSlug.includes(d.asin.toLowerCase()))
+            ) || null;
+
+          if (found) {
+            setDeal(found);
+            const related = all
+              .filter((d) => d.id !== found.id && d.category === found.category)
+              .slice(0, 3);
+            setRelatedDeals(related);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading deal details:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDeal();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+        <p className="text-sm text-slate-400">Lade Angebot...</p>
+      </div>
+    );
   }
 
-  const discountText = deal.discountPercentage > 0 ? `(-${deal.discountPercentage}%) ` : '';
-  const priceText = formatPrice(deal.discountPrice, deal.currency);
-
-  return {
-    title: `${discountText}${deal.title} für nur ${priceText}`,
-    description: `Jetzt ${deal.title} auf Amazon mit ${deal.discountPercentage}% Rabatt für nur ${priceText} statt ${formatPrice(deal.originalPrice, deal.currency)} sichern. Jetzt Angebot prüfen!`,
-    openGraph: {
-      title: `${discountText}${deal.title} – ${priceText}`,
-      description: deal.description,
-      images: [
-        {
-          url: deal.imageUrl,
-          width: 800,
-          height: 600,
-          alt: deal.title
-        }
-      ],
-      type: 'website'
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: `${discountText}${deal.title}`,
-      description: `Nur ${priceText} (statt ${formatPrice(deal.originalPrice, deal.currency)}). Spare ${formatPrice(deal.savingsAmount, deal.currency)}!`,
-      images: [deal.imageUrl]
-    }
-  };
-}
-
-export default async function DealDetailPage({ params }: DealPageProps) {
-  const { slug } = await params;
-  const deal = getDealBySlug(slug);
-
   if (!deal) {
-    notFound();
+    return (
+      <div className="py-20 max-w-lg mx-auto text-center space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-black text-white">Angebot nicht gefunden</h1>
+          <p className="text-sm text-slate-400">
+            Dieses Angebot ist möglicherweise abgelaufen oder wurde aktualisiert.
+          </p>
+        </div>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs shadow-lg hover:brightness-110 transition-all"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Zurück zur Übersicht</span>
+        </Link>
+      </div>
+    );
   }
 
   const categoryMeta = getCategoryMeta(deal.category);
-  const relatedDeals = getDealsByCategory(deal.category)
-    .filter((d) => d.id !== deal.id)
-    .slice(0, 3);
-
-  const currentUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://blitzdeals.de'}/deal/${deal.slug}`;
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : `https://blitzdeals.de/deal/${deal.slug}`;
 
   return (
     <div className="py-8 space-y-8">
@@ -88,7 +115,7 @@ export default async function DealDetailPage({ params }: DealPageProps) {
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-xs text-slate-400">
         <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
-          <ArrowLeft className="w-3 h-3" />
+          <ArrowLeft className="w-3.5 h-3.5" />
           <span>Alle Deals</span>
         </Link>
         <span>/</span>
@@ -126,7 +153,10 @@ export default async function DealDetailPage({ params }: DealPageProps) {
           <img
             src={deal.imageUrl}
             alt={deal.title}
-            className="max-h-[320px] max-w-full object-contain filter drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+            className="max-h-[320px] max-w-full object-contain filter drop-shadow-2xl hover:scale-105 transition-transform duration-300 rounded-xl"
+            onError={(e) => {
+              e.currentTarget.src = '/banner.png';
+            }}
           />
         </div>
 
@@ -172,7 +202,7 @@ export default async function DealDetailPage({ params }: DealPageProps) {
                 </div>
                 <span className="font-bold text-white">{deal.rating.toFixed(1)} von 5</span>
                 {deal.ratingCount && (
-                  <span className="text-slate-400">({deal.ratingCount.toLocaleString('de-DE')} Kundenbewertungen)</span>
+                  <span className="text-slate-400">({deal.ratingCount.toLocaleString('de-DE')} Bewertungen)</span>
                 )}
               </div>
             )}
@@ -199,7 +229,7 @@ export default async function DealDetailPage({ params }: DealPageProps) {
             </div>
 
             {/* Description */}
-            <div className="space-y-2 text-sm text-slate-300 leading-relaxed">
+            <div className="space-y-2 text-sm text-slate-300 leading-relaxed whitespace-pre-line">
               <h3 className="font-bold text-white text-xs uppercase tracking-wider text-slate-400">Produktbeschreibung & Highlights</h3>
               <p>{deal.description}</p>
             </div>

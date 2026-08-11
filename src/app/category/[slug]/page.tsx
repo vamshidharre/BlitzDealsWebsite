@@ -1,31 +1,39 @@
-import React from 'react';
-import { Metadata } from 'next';
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getDealsByCategory } from '@/lib/db';
+import { Deal } from '@/lib/types';
 import { getCategoryMeta } from '@/lib/utils';
 import { DealCard } from '@/components/DealCard';
-import { ArrowLeft, Flame, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 
-interface CategoryPageProps {
-  params: Promise<{
-    slug: string;
-  }>;
-}
+export default function CategoryPage() {
+  const params = useParams();
+  const rawSlug = params?.slug as string;
+  const slug = rawSlug ? decodeURIComponent(rawSlug) : 'all';
 
-export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const meta = getCategoryMeta(slug);
 
-  return {
-    title: `${meta.icon} ${meta.label} Deals – Beste Amazon Rabatte`,
-    description: `Entdecke die besten Amazon Angebote, Rabatte und Preisfehler in der Kategorie ${meta.label}. Täglich aktualisiert auf BlitzDeals.de.`
-  };
-}
-
-export default async function CategoryPage({ params }: CategoryPageProps) {
-  const { slug } = await params;
-  const meta = getCategoryMeta(slug);
-  const deals = getDealsByCategory(slug);
+  useEffect(() => {
+    async function loadCategoryDeals() {
+      try {
+        const res = await fetch(`/api/deals?category=${slug}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success && data.deals) {
+          setDeals(data.deals);
+        }
+      } catch (err) {
+        console.error('Failed to load category deals:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadCategoryDeals();
+  }, [slug]);
 
   return (
     <div className="py-8 space-y-8">
@@ -55,7 +63,12 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       </div>
 
       {/* Grid */}
-      {deals.length > 0 ? (
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center space-y-4">
+          <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+          <p className="text-sm text-slate-400">Lade {meta.label} Deals...</p>
+        </div>
+      ) : deals.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {deals.map((deal) => (
             <DealCard key={deal.id} deal={deal} />
@@ -66,7 +79,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           <p className="text-slate-400 text-sm">Aktuell keine Angebote in dieser Kategorie online.</p>
           <Link
             href="/"
-            className="inline-block px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold"
+            className="inline-block px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/20"
           >
             Alle Deals ansehen
           </Link>
