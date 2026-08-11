@@ -9,15 +9,21 @@ declare global {
   var _blitzDealsCache: Deal[] | undefined;
 }
 
-const KV_URL =
-  process.env.KV_REST_API_URL ||
-  process.env.UPSTASH_REDIS_REST_URL ||
-  '';
+function getUpstashCredentials(): { url: string; token: string } {
+  const url = (
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_REST_API_URL ||
+    ''
+  ).replace(/\/+$/, '');
 
-const KV_TOKEN =
-  process.env.KV_REST_API_TOKEN ||
-  process.env.UPSTASH_REDIS_REST_TOKEN ||
-  '';
+  const token = (
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_TOKEN ||
+    ''
+  ).trim();
+
+  return { url, token };
+}
 
 function getDbFilePath(): string {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
@@ -58,11 +64,13 @@ export function getAllDeals(): Deal[] {
 
 /** Asynchronous fetch supporting persistent Cloud KV database (Upstash / Vercel KV) */
 export async function getAllDealsAsync(): Promise<Deal[]> {
-  if (KV_URL && KV_TOKEN) {
+  const { url, token } = getUpstashCredentials();
+
+  if (url && token) {
     try {
-      const res = await fetch(`${KV_URL}/get/blitzdeals_list`, {
+      const res = await fetch(`${url}/get/blitzdeals_list`, {
         headers: {
-          Authorization: `Bearer ${KV_TOKEN}`
+          Authorization: `Bearer ${token}`
         },
         cache: 'no-store'
       });
@@ -77,7 +85,7 @@ export async function getAllDealsAsync(): Promise<Deal[]> {
         }
       }
     } catch (e) {
-      console.error('Cloud KV fetch failed, falling back to local storage:', e);
+      console.error('Cloud KV fetch error, fallback to memory:', e);
     }
   }
   return getAllDeals();
@@ -180,23 +188,24 @@ export async function saveDeal(
   // Update in-memory global cache
   globalThis._blitzDealsCache = deals;
 
-  // 1. Persist to Cloud KV if configured
-  if (KV_URL && KV_TOKEN) {
+  // 1. Persist to Cloud Upstash Redis KV if configured
+  const { url, token } = getUpstashCredentials();
+  if (url && token) {
     try {
-      await fetch(`${KV_URL}/set/blitzdeals_list`, {
+      await fetch(`${url}/set/blitzdeals_list`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${KV_TOKEN}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(deals)
+        body: JSON.stringify(JSON.stringify(deals))
       });
     } catch (e) {
-      console.error('Failed to sync to Cloud KV:', e);
+      console.error('Failed to sync to Upstash KV:', e);
     }
   }
 
-  // 2. Persist to local disk
+  // 2. Persist to local disk fallback
   try {
     const dbFile = getDbFilePath();
     fs.writeFileSync(dbFile, JSON.stringify(deals, null, 2), 'utf-8');
