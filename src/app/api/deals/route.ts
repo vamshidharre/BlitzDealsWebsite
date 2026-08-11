@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllDeals, getDealsByCategory, searchDeals } from '@/lib/db';
+import { getAllDealsAsync } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -7,11 +7,29 @@ export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || '';
+    const query = (searchParams.get('q') || '').toLowerCase().trim();
     const category = searchParams.get('category') || 'all';
     const sort = searchParams.get('sort') || 'newest';
 
-    let deals = query ? searchDeals(query, category) : getDealsByCategory(category);
+    let deals = await getAllDealsAsync();
+
+    if (category && category !== 'all') {
+      if (category === 'loot') {
+        deals = deals.filter((d) => d.isLoot || d.discountPercentage >= 35);
+      } else {
+        deals = deals.filter((d) => d.category.toLowerCase() === category.toLowerCase());
+      }
+    }
+
+    if (query) {
+      deals = deals.filter(
+        (d) =>
+          d.title.toLowerCase().includes(query) ||
+          d.description.toLowerCase().includes(query) ||
+          d.asin?.toLowerCase().includes(query) ||
+          (d.tags && d.tags.some((t) => t.toLowerCase().includes(query)))
+      );
+    }
 
     if (sort === 'discount') {
       deals = [...deals].sort((a, b) => b.discountPercentage - a.discountPercentage);

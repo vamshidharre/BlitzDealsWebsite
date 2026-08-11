@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       ratingCount: body.ratingCount
     };
 
-    const savedDeal = saveDeal(payload);
+    const savedDeal = await saveDeal(payload);
 
     return NextResponse.json(
       {
