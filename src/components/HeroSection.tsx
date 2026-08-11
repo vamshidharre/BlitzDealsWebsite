@@ -49,7 +49,7 @@ export function HeroSection({ searchQuery, onSearchChange, totalDealsCount }: He
 
         {/* Subtitle */}
         <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Unser intelligenter Deal-Bot scannt Amazon 24/7 nach den größten Rabatten, Blitzangeboten und Preisfehlern – 100% kostenlos und automatisch geprüft.
+          Unser intelligenter Deal-Bot scannt Amazon 24/7 nach den größten Rabatten, Blitzangeboten und Preisfehlern - 100% kostenlos und automatisch geprüft.
         </p>
 
         {/* Interactive Search Bar */}

@@ -98,7 +98,7 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="mt-12 pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
-          <p>© {new Date().getFullYear()} BlitzDeals.de – Alle Rechte vorbehalten.</p>
+          <p>© {new Date().getFullYear()} BlitzDeals.de - Alle Rechte vorbehalten.</p>
           <p className="flex items-center gap-1">
             Made with <Heart className="w-3 h-3 text-red-500 fill-red-500" /> for Smart Shoppers
           </p>

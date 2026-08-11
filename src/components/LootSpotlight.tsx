@@ -30,7 +30,7 @@ export function LootSpotlight({ deals }: LootSpotlightProps) {
               </span>
             </h2>
             <p className="text-xs text-slate-400">
-              Besonders hohe Preisnachlässe – schnell sein, solange der Vorrat reicht!
+              Besonders hohe Preisnachlässe - schnell sein, solange der Vorrat reicht!
             </p>
           </div>
         </div>

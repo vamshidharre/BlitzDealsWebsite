@@ -14,6 +14,8 @@ export function cleanMarkdown(text: string): string {
     .replace(/\*([^*]+)\*/g, '$1')     // remove *italic*
     .replace(/_([^_]+)_/g, '$1')       // remove _italic_
     .replace(/`([^`]+)`/g, '$1')       // remove `code`
+    .replace(/[—–―‒]/g, '-')          // replace em-dashes and en-dashes with standard hyphen
+    .replace(/--+/g, '-')             // collapse multiple hyphens
     .replace(/[*_~`]/g, '')           // remove any leftover raw symbols
     .trim();
 }

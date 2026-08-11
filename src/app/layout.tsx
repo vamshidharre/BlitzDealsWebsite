@@ -5,7 +5,7 @@ import { Footer } from '@/components/Footer';
 
 export const metadata: Metadata = {
   title: {
-    default: 'BlitzDeals.de – Die besten Amazon Deals & Preisfehler in Echtzeit',
+    default: 'BlitzDeals.de - Die besten Amazon Deals & Preisfehler in Echtzeit',
     template: '%s | BlitzDeals.de'
   },
   description:
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     apple: '/icon.png'
   },
   openGraph: {
-    title: 'BlitzDeals.de – Die besten Amazon Deals in Echtzeit',
+    title: 'BlitzDeals.de - Die besten Amazon Deals in Echtzeit',
     description:
       'Täglich die besten Rabatte, Sonderangebote und Preisfehler auf Amazon. 100% kostenlos und handverlesen.',
     siteName: 'BlitzDeals.de',
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BlitzDeals.de – Die besten Amazon Deals in Echtzeit',
+    title: 'BlitzDeals.de - Die besten Amazon Deals in Echtzeit',
     description: 'Täglich die heißesten Amazon Rabatte & Preisfehler.',
     images: ['/banner.png']
   },
