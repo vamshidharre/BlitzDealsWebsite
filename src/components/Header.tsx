@@ -90,7 +90,7 @@ export function Header() {
           </a>
 
           <a
-            href="https://discord.com"
+            href="https://discord.gg/75gPdFBr"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-semibold transition-all hover:scale-105"

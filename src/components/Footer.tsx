@@ -38,7 +38,7 @@ export function Footer() {
                 <Send className="w-4 h-4" />
               </a>
               <a
-                href="https://discord.com"
+                href="https://discord.gg/75gPdFBr"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-indigo-400 border border-slate-800 transition-colors"
