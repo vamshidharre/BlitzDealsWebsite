@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllDeals, getDealsByCategory, searchDeals } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -22,11 +25,18 @@ export async function GET(request: NextRequest) {
       deals = [...deals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
-    return NextResponse.json({
-      success: true,
-      count: deals.length,
-      deals
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: deals.length,
+        deals
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0'
+        }
+      }
+    );
   } catch (error) {
     return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
   }

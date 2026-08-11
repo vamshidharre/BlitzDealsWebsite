@@ -1,46 +1,62 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { Deal, PublishDealPayload } from './types';
 import { generateSlug } from './utils';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const DB_FILE = path.join(DATA_DIR, 'deals.json');
-const PUBLIC_DEALS_DIR = path.join(process.cwd(), 'public', 'deals');
+// Global in-memory cache to ensure instant persistence across serverless invocations
+declare global {
+  // eslint-disable-next-line no-var
+  var _blitzDealsCache: Deal[] | undefined;
+}
 
-function ensureDirectories(): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(PUBLIC_DEALS_DIR)) {
-      fs.mkdirSync(PUBLIC_DEALS_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify([], null, 2), 'utf-8');
-    }
-  } catch (err) {
-    console.error('Database directory initialization error:', err);
+function getDbFilePath(): string {
+  // On Vercel / serverless, process.cwd() is read-only, so use OS temp directory
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join(os.tmpdir(), 'blitzdeals.json');
   }
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+    } catch {
+      return path.join(os.tmpdir(), 'blitzdeals.json');
+    }
+  }
+  return path.join(dataDir, 'deals.json');
 }
 
 export function getAllDeals(): Deal[] {
   try {
-    ensureDirectories();
-    const data = fs.readFileSync(DB_FILE, 'utf-8');
-    const deals: Deal[] = JSON.parse(data);
-    return deals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (globalThis._blitzDealsCache && globalThis._blitzDealsCache.length > 0) {
+      return globalThis._blitzDealsCache.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+
+    const dbFile = getDbFilePath();
+    if (fs.existsSync(dbFile)) {
+      const data = fs.readFileSync(dbFile, 'utf-8');
+      const deals: Deal[] = JSON.parse(data);
+      globalThis._blitzDealsCache = deals;
+      return deals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
   } catch (err) {
     console.error('Error reading deals:', err);
-    return [];
   }
+  return globalThis._blitzDealsCache || [];
 }
 
 export function getDealBySlug(slug: string): Deal | null {
   const deals = getAllDeals();
   const lowerSlug = slug.toLowerCase();
   return (
-    deals.find((d) => d.slug.toLowerCase() === lowerSlug || d.id === slug || (d.asin && d.asin.toLowerCase() === lowerSlug)) ||
-    null
+    deals.find(
+      (d) =>
+        d.slug.toLowerCase() === lowerSlug ||
+        d.id === slug ||
+        (d.asin && d.asin.toLowerCase() === lowerSlug)
+    ) || null
   );
 }
 
@@ -66,38 +82,27 @@ export function searchDeals(query: string, category = 'all'): Deal[] {
 }
 
 export function saveDeal(payload: PublishDealPayload & { imageBase64?: string }): Deal {
-  ensureDirectories();
   const deals = getAllDeals();
 
   const originalPrice = payload.originalPrice || payload.discountPrice;
   const discountPrice = payload.discountPrice;
   const discountPercentage =
     payload.discountPercentage ||
-    (originalPrice > discountPrice ? Math.round(((originalPrice - discountPrice) / originalPrice) * 100) : 0);
+    (originalPrice > discountPrice
+      ? Math.round(((originalPrice - discountPrice) / originalPrice) * 100)
+      : 0);
   const savingsAmount = Math.max(0, Number((originalPrice - discountPrice).toFixed(2)));
   const asin = payload.asin || 'AMZ' + Math.random().toString(36).substring(2, 9).toUpperCase();
   const slug = generateSlug(payload.title, asin);
   const dealId = `deal-${Date.now()}`;
 
-  // Process image from Telegram: Save base64 image locally into public/deals/
-  let finalImageUrl = payload.imageUrl || '/banner.png';
-  if (payload.imageBase64 && payload.imageBase64.includes('base64,')) {
-    try {
-      const base64Data = payload.imageBase64.split(';base64,').pop();
-      if (base64Data) {
-        const imageFileName = `${asin || dealId}.jpg`;
-        const imageFilePath = path.join(PUBLIC_DEALS_DIR, imageFileName);
-        fs.writeFileSync(imageFilePath, Buffer.from(base64Data, 'base64'));
-        finalImageUrl = `/deals/${imageFileName}`;
-      }
-    } catch (e) {
-      console.error('Failed to save Telegram image to disk, falling back:', e);
-      finalImageUrl = payload.imageBase64;
-    }
-  }
+  // Use Telegram image: if base64 provided, store data URL directly for 100% serverless compatibility
+  const finalImageUrl = payload.imageBase64 || payload.imageUrl || '/banner.png';
 
   // Check if deal already exists by ASIN to update instead of duplicate
-  const existingIdx = deals.findIndex((d) => d.asin && d.asin.toUpperCase() === asin.toUpperCase());
+  const existingIdx = deals.findIndex(
+    (d) => d.asin && d.asin.toUpperCase() === asin.toUpperCase()
+  );
 
   const newDeal: Deal = {
     id: existingIdx >= 0 ? deals[existingIdx].id : dealId,
@@ -131,24 +136,39 @@ export function saveDeal(payload: PublishDealPayload & { imageBase64?: string })
     deals.unshift(newDeal);
   }
 
-  // Persist to disk atomically
-  fs.writeFileSync(DB_FILE, JSON.stringify(deals, null, 2), 'utf-8');
+  // Update memory cache
+  globalThis._blitzDealsCache = deals;
+
+  // Persist to disk
+  try {
+    const dbFile = getDbFilePath();
+    fs.writeFileSync(dbFile, JSON.stringify(deals, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('File write error, maintained in-memory cache:', err);
+  }
+
   return newDeal;
 }
 
 export function clearAllDeals(): void {
-  ensureDirectories();
-  fs.writeFileSync(DB_FILE, JSON.stringify([], null, 2), 'utf-8');
+  globalThis._blitzDealsCache = [];
+  try {
+    const dbFile = getDbFilePath();
+    fs.writeFileSync(dbFile, JSON.stringify([], null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error clearing deals file:', err);
+  }
 }
 
 export function incrementClickCount(id: string): void {
   try {
-    ensureDirectories();
     const deals = getAllDeals();
     const deal = deals.find((d) => d.id === id || d.slug === id);
     if (deal) {
       deal.clicksCount = (deal.clicksCount || 0) + 1;
-      fs.writeFileSync(DB_FILE, JSON.stringify(deals, null, 2), 'utf-8');
+      globalThis._blitzDealsCache = deals;
+      const dbFile = getDbFilePath();
+      fs.writeFileSync(dbFile, JSON.stringify(deals, null, 2), 'utf-8');
     }
   } catch (err) {
     console.error('Error incrementing click count:', err);
