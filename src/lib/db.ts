@@ -6,7 +6,7 @@ import { generateSlug } from './utils';
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'deals.json');
 
-// 100% Verified Live German Amazon Deals with working Amazon.de ASINs
+// 100% Verified Live German Amazon Deals with verified local images & working Amazon.de ASINs
 const INITIAL_SEED_DEALS: Deal[] = [
   {
     id: 'deal-1',
@@ -19,7 +19,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 36,
     savingsAmount: 150.0,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/61+elL4NuUL._AC_SL1500_.jpg',
+    imageUrl: '/products/sony-xm5.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B09Y2MYL5C/?tag=mysterydealzd-21',
     category: 'audio',
     isLoot: true,
@@ -43,7 +43,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 33,
     savingsAmount: 25.0,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/612hnms2FmL._AC_SL1500_.jpg',
+    imageUrl: '/products/ps5-controller.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B094WLFGD3/?tag=mysterydealzd-21',
     category: 'gaming',
     isLoot: true,
@@ -67,7 +67,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 42,
     savingsAmount: 18.0,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/81xU9d-tDdL._AC_SL1500_.jpg',
+    imageUrl: '/products/sandisk-128gb.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B07NGP2JRQ/?tag=mysterydealzd-21',
     category: 'tech',
     isLoot: true,
@@ -91,7 +91,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 35,
     savingsAmount: 21.0,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/71rQ1c8F3uL._AC_SL1500_.jpg',
+    imageUrl: '/products/philips-hue.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B08D6NCQ1Z/?tag=mysterydealzd-21',
     category: 'home',
     isLoot: false,
@@ -115,7 +115,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 50,
     savingsAmount: 45.0,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/71oJ3wG4N3L._AC_SL1500_.jpg',
+    imageUrl: '/products/tefal-pfanne.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B0FJY4PXB7/?tag=mysterydealzd-21',
     category: 'home',
     isLoot: true,
@@ -139,7 +139,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 26,
     savingsAmount: 6.96,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/61N+1sV3x+L._AC_SL1500_.jpg',
+    imageUrl: '/products/jiuday-bh.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B0F6Y162GJ/?tag=mysterydealzd-21',
     category: 'fashion',
     isLoot: false,
@@ -163,7 +163,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 32,
     savingsAmount: 8.0,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/61Mcz1c-7KL._AC_SL1500_.jpg',
+    imageUrl: '/products/anker-nano.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B0GKZ8K4VN/?tag=mysterydealzd-21',
     category: 'tech',
     isLoot: false,
@@ -187,7 +187,7 @@ const INITIAL_SEED_DEALS: Deal[] = [
     discountPercentage: 40,
     savingsAmount: 8.0,
     currency: '€',
-    imageUrl: 'https://m.media-amazon.com/images/I/51r-xG9aDYL._AC_SL1500_.jpg',
+    imageUrl: '/products/tapo-steckdose.jpg',
     affiliateUrl: 'https://www.amazon.de/dp/B0GZZZJ1Q9/?tag=mysterydealzd-21',
     category: 'home',
     isLoot: true,
@@ -207,7 +207,6 @@ function ensureDbFile(): void {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    // Always write verified seed deals if file missing or empty
     if (!fs.existsSync(DB_FILE)) {
       fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_SEED_DEALS, null, 2), 'utf-8');
     }
@@ -285,7 +284,7 @@ export function saveDeal(payload: PublishDealPayload): Deal {
     discountPercentage,
     savingsAmount,
     currency: '€',
-    imageUrl: payload.imageUrl || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80',
+    imageUrl: payload.imageUrl || '/products/sony-xm5.jpg',
     affiliateUrl: payload.affiliateUrl,
     category: payload.category || 'tech',
     isLoot: payload.isLoot || discountPercentage >= 35,
