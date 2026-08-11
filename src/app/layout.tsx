@@ -50,6 +50,9 @@ export const metadata: Metadata = {
     description: 'Täglich die heißesten Amazon Rabatte & Preisfehler.',
     images: ['/banner.png']
   },
+  verification: {
+    google: 'google4fdfab1ab320b437'
+  },
   robots: {
     index: true,
     follow: true
