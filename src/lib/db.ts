@@ -44,7 +44,7 @@ function getDbFilePath(): string {
 export function getAllDeals(): Deal[] {
   try {
     if (globalThis._blitzDealsCache && globalThis._blitzDealsCache.length > 0) {
-      return globalThis._blitzDealsCache.sort(
+      return [...globalThis._blitzDealsCache].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     }
@@ -57,37 +57,73 @@ export function getAllDeals(): Deal[] {
       return deals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
   } catch (err) {
-    console.error('Error reading deals:', err);
+    console.error('Error reading deals synchronously:', err);
   }
   return globalThis._blitzDealsCache || [];
 }
 
-/** Asynchronous fetch supporting persistent Cloud KV database (Upstash / Vercel KV) */
+/** Asynchronous fetch supporting persistent Upstash Redis Cloud Database */
 export async function getAllDealsAsync(): Promise<Deal[]> {
   const { url, token } = getUpstashCredentials();
 
   if (url && token) {
     try {
-      const res = await fetch(`${url}/get/blitzdeals_list`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
+      // 1. Try fetching deal IDs index
+      const indexRes = await fetch(`${url}/get/blitzdeals_ids`, {
+        headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store'
       });
-      if (res.ok) {
-        const data = await res.json();
+
+      if (indexRes.ok) {
+        const indexData = await indexRes.json();
+        let ids: string[] = [];
+        if (indexData.result) {
+          ids = typeof indexData.result === 'string' ? JSON.parse(indexData.result) : indexData.result;
+        }
+
+        if (Array.isArray(ids) && ids.length > 0) {
+          // 2. Fetch individual deals in batch (MGET)
+          const mgetRes = await fetch(`${url}/mget/${ids.map((id) => `deal:${id}`).join('/')}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store'
+          });
+
+          if (mgetRes.ok) {
+            const mgetData = await mgetRes.json();
+            if (Array.isArray(mgetData.result)) {
+              const deals: Deal[] = mgetData.result
+                .filter((r: any) => r !== null)
+                .map((r: any) => (typeof r === 'string' ? JSON.parse(r) : r));
+
+              if (deals.length > 0) {
+                globalThis._blitzDealsCache = deals;
+                return deals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              }
+            }
+          }
+        }
+      }
+
+      // Fallback: Check legacy monolithic key if present
+      const legacyRes = await fetch(`${url}/get/blitzdeals_list`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+      });
+      if (legacyRes.ok) {
+        const data = await legacyRes.json();
         if (data.result) {
           const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          if (Array.isArray(parsed)) {
+          if (Array.isArray(parsed) && parsed.length > 0) {
             globalThis._blitzDealsCache = parsed;
             return parsed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           }
         }
       }
     } catch (e) {
-      console.error('Cloud KV fetch error, fallback to memory:', e);
+      console.error('Cloud Upstash Redis fetch error, falling back to memory cache:', e);
     }
   }
+
   return getAllDeals();
 }
 
@@ -141,7 +177,7 @@ export async function saveDeal(
       ? Math.round(((originalPrice - discountPrice) / originalPrice) * 100)
       : 0);
   const savingsAmount = Math.max(0, Number((originalPrice - discountPrice).toFixed(2)));
-  const asin = payload.asin || 'AMZ' + Math.random().toString(36).substring(2, 9).toUpperCase();
+  const asin = (payload.asin || 'AMZ' + Math.random().toString(36).substring(2, 9).toUpperCase()).toUpperCase();
   const cleanTitle = cleanDealTitle(payload.title);
   const cleanDesc = cleanMarkdown(payload.description || 'Aktuelles Top-Angebot auf Amazon mit starkem Preisnachlass.');
   const slug = generateSlug(cleanTitle, asin);
@@ -150,12 +186,12 @@ export async function saveDeal(
   const finalImageUrl = payload.imageBase64 || payload.imageUrl || '/banner.png';
 
   const existingIdx = deals.findIndex(
-    (d) => d.asin && d.asin.toUpperCase() === asin.toUpperCase()
+    (d) => d.asin && d.asin.toUpperCase() === asin
   );
 
   const newDeal: Deal = {
     id: existingIdx >= 0 ? deals[existingIdx].id : dealId,
-    asin: asin.toUpperCase(),
+    asin,
     title: cleanTitle,
     slug,
     description: cleanDesc,
@@ -188,20 +224,32 @@ export async function saveDeal(
   // Update in-memory global cache
   globalThis._blitzDealsCache = deals;
 
-  // 1. Persist to Cloud Upstash Redis KV if configured
+  // 1. Persist to Cloud Upstash Redis KV using robust individual keys (No 1MB payload limits!)
   const { url, token } = getUpstashCredentials();
   if (url && token) {
     try {
-      await fetch(`${url}/set/blitzdeals_list`, {
+      // Save the single deal
+      await fetch(`${url}/set/deal:${newDeal.id}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(JSON.stringify(deals))
+        body: JSON.stringify(JSON.stringify(newDeal))
+      });
+
+      // Save the IDs index
+      const dealIds = deals.map((d) => d.id);
+      await fetch(`${url}/set/blitzdeals_ids`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(JSON.stringify(dealIds))
       });
     } catch (e) {
-      console.error('Failed to sync to Upstash KV:', e);
+      console.error('Failed to sync deal to Upstash KV:', e);
     }
   }
 
