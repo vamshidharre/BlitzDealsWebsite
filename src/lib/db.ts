@@ -25,6 +25,35 @@ function getUpstashCredentials(): { url: string; token: string } {
   return { url, token };
 }
 
+/** Universal Upstash Redis Command Executor via POST array protocol */
+async function upstashCommand<T = any>(command: any[]): Promise<T | null> {
+  const { url, token } = getUpstashCredentials();
+  if (!url || !token) return null;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(command),
+      cache: 'no-store'
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.result as T;
+    } else {
+      const errText = await res.text();
+      console.warn(`[UPSTASH WARNING] Command failed (${res.status}):`, errText);
+    }
+  } catch (err) {
+    console.error('[UPSTASH ERROR] Execution failed:', err);
+  }
+  return null;
+}
+
 function getDbFilePath(): string {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     return path.join(os.tmpdir(), 'blitzdeals.json');
@@ -64,66 +93,55 @@ export function getAllDeals(): Deal[] {
 
 /** Asynchronous fetch supporting persistent Upstash Redis Cloud Database */
 export async function getAllDealsAsync(): Promise<Deal[]> {
-  const { url, token } = getUpstashCredentials();
+  try {
+    // 1. Fetch deal IDs index from Upstash
+    const idsResult = await upstashCommand<string | string[]>(['GET', 'blitzdeals_ids']);
+    let ids: string[] = [];
 
-  if (url && token) {
-    try {
-      // 1. Try fetching deal IDs index
-      const indexRes = await fetch(`${url}/get/blitzdeals_ids`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store'
-      });
-
-      if (indexRes.ok) {
-        const indexData = await indexRes.json();
-        let ids: string[] = [];
-        if (indexData.result) {
-          ids = typeof indexData.result === 'string' ? JSON.parse(indexData.result) : indexData.result;
-        }
-
-        if (Array.isArray(ids) && ids.length > 0) {
-          // 2. Fetch individual deals in batch (MGET)
-          const mgetRes = await fetch(`${url}/mget/${ids.map((id) => `deal:${id}`).join('/')}`, {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store'
-          });
-
-          if (mgetRes.ok) {
-            const mgetData = await mgetRes.json();
-            if (Array.isArray(mgetData.result)) {
-              const deals: Deal[] = mgetData.result
-                .filter((r: any) => r !== null)
-                .map((r: any) => (typeof r === 'string' ? JSON.parse(r) : r));
-
-              if (deals.length > 0) {
-                globalThis._blitzDealsCache = deals;
-                return deals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-              }
-            }
-          }
-        }
-      }
-
-      // Fallback: Check legacy monolithic key if present
-      const legacyRes = await fetch(`${url}/get/blitzdeals_list`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store'
-      });
-      if (legacyRes.ok) {
-        const data = await legacyRes.json();
-        if (data.result) {
-          const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            globalThis._blitzDealsCache = parsed;
-            return parsed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Cloud Upstash Redis fetch error, falling back to memory cache:', e);
+    if (idsResult) {
+      ids = typeof idsResult === 'string' ? JSON.parse(idsResult) : idsResult;
     }
+
+    if (Array.isArray(ids) && ids.length > 0) {
+      // 2. Multi-Get all individual deals simultaneously
+      const mgetKeys = ids.map((id) => `deal:${id}`);
+      const dealsRaw = await upstashCommand<any[]>(['MGET', ...mgetKeys]);
+
+      if (Array.isArray(dealsRaw)) {
+        const deals: Deal[] = [];
+        for (const item of dealsRaw) {
+          if (!item) continue;
+          try {
+            const parsed = typeof item === 'string' ? JSON.parse(item) : item;
+            if (parsed && parsed.id && parsed.title) {
+              deals.push(parsed);
+            }
+          } catch (parseErr) {
+            console.warn('Failed to parse deal item:', parseErr);
+          }
+        }
+
+        if (deals.length > 0) {
+          globalThis._blitzDealsCache = deals;
+          return deals.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+      }
+    }
+
+    // Fallback: Check legacy list key if ids index is empty
+    const legacyResult = await upstashCommand<string | Deal[]>(['GET', 'blitzdeals_list']);
+    if (legacyResult) {
+      const parsed = typeof legacyResult === 'string' ? JSON.parse(legacyResult) : legacyResult;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        globalThis._blitzDealsCache = parsed;
+        return parsed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      }
+    }
+  } catch (e) {
+    console.error('Error loading deals from Upstash Redis:', e);
   }
 
+  // Local fallback
   return getAllDeals();
 }
 
@@ -224,33 +242,17 @@ export async function saveDeal(
   // Update in-memory global cache
   globalThis._blitzDealsCache = deals;
 
-  // 1. Persist to Cloud Upstash Redis KV using robust individual keys (No 1MB payload limits!)
-  const { url, token } = getUpstashCredentials();
-  if (url && token) {
-    try {
-      // Save the single deal
-      await fetch(`${url}/set/deal:${newDeal.id}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(JSON.stringify(newDeal))
-      });
+  // 1. Persist to Cloud Upstash Redis KV using POST command protocol
+  try {
+    // Save the individual deal key
+    await upstashCommand(['SET', `deal:${newDeal.id}`, JSON.stringify(newDeal)]);
 
-      // Save the IDs index
-      const dealIds = deals.map((d) => d.id);
-      await fetch(`${url}/set/blitzdeals_ids`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(JSON.stringify(dealIds))
-      });
-    } catch (e) {
-      console.error('Failed to sync deal to Upstash KV:', e);
-    }
+    // Save the updated list of deal IDs
+    const dealIds = deals.map((d) => d.id);
+    await upstashCommand(['SET', 'blitzdeals_ids', JSON.stringify(dealIds)]);
+    console.log(`[DB SUCCESS] Persisted deal ${newDeal.asin} to Upstash Cloud Database (Total active: ${dealIds.length})`);
+  } catch (upstashErr) {
+    console.error('Failed to sync deal to Upstash:', upstashErr);
   }
 
   // 2. Persist to local disk fallback
