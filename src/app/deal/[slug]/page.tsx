@@ -1,43 +1,39 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Deal } from '@/lib/types';
-import { formatPrice, getCategoryMeta, timeAgo } from '@/lib/utils';
+import { formatPrice, getCategoryMeta, timeAgo, cleanMarkdown } from '@/lib/utils';
 import { JsonLdSchema } from '@/components/JsonLdSchema';
-import { SocialShare } from '@/components/SocialShare';
 import { DealCard } from '@/components/DealCard';
 import {
   ExternalLink,
-  Star,
-  ShieldCheck,
-  Zap,
-  TrendingDown,
   Truck,
   ArrowLeft,
   Clock,
-  Sparkles,
-  ShoppingBag,
-  AlertCircle,
-  Loader2
+  Loader2,
+  Copy,
+  Check,
+  CheckCircle2,
+  Share2
 } from 'lucide-react';
 
 export default function DealDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const rawSlug = params?.slug as string;
   const slug = rawSlug ? decodeURIComponent(rawSlug) : '';
 
   const [deal, setDeal] = useState<Deal | null>(null);
   const [relatedDeals, setRelatedDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copiedAsin, setCopiedAsin] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     async function fetchDeal() {
       if (!slug) return;
       try {
-        // 1. Fetch all deals to find the matching deal and related deals
         const res = await fetch('/api/deals', { cache: 'no-store' });
         const data = await res.json();
         if (data.success && data.deals) {
@@ -72,30 +68,41 @@ export default function DealDetailPage() {
     fetchDeal();
   }, [slug]);
 
+  const copyAsin = () => {
+    if (deal?.asin) {
+      navigator.clipboard.writeText(deal.asin);
+      setCopiedAsin(true);
+      setTimeout(() => setCopiedAsin(false), 2000);
+    }
+  };
+
+  const copyPageLink = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
-        <p className="text-sm text-slate-400">Lade Angebot...</p>
+      <div className="py-24 flex flex-col items-center justify-center space-y-3">
+        <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
+        <p className="text-xs text-zinc-500">Lade Angebot...</p>
       </div>
     );
   }
 
   if (!deal) {
     return (
-      <div className="py-20 max-w-lg mx-auto text-center space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
-          <AlertCircle className="w-8 h-8" />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-black text-white">Angebot nicht gefunden</h1>
-          <p className="text-sm text-slate-400">
-            Dieses Angebot ist möglicherweise abgelaufen oder wurde aktualisiert.
-          </p>
-        </div>
+      <div className="py-20 max-w-md mx-auto text-center space-y-4">
+        <h1 className="text-xl font-bold text-zinc-900">Angebot nicht gefunden</h1>
+        <p className="text-xs text-zinc-500">
+          Dieses Angebot ist möglicherweise nicht mehr verfügbar.
+        </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs shadow-lg hover:brightness-110 transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-zinc-800 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Zurück zur Übersicht</span>
@@ -105,46 +112,45 @@ export default function DealDetailPage() {
   }
 
   const categoryMeta = getCategoryMeta(deal.category);
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : `https://blitzdeals.de/deal/${deal.slug}`;
 
   return (
-    <div className="py-8 space-y-8">
-      {/* JSON-LD Schema for Google Rich Snippets */}
+    <div className="py-4 space-y-8 max-w-5xl mx-auto">
+      {/* JSON-LD Schema for Google SEO */}
       <JsonLdSchema deal={deal} />
 
-      {/* Breadcrumb Navigation */}
-      <nav className="flex items-center gap-2 text-xs text-slate-400">
-        <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-2 text-xs text-zinc-500">
+        <Link href="/" className="hover:text-zinc-900 transition-colors flex items-center gap-1">
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Alle Deals</span>
         </Link>
         <span>/</span>
-        <Link href={`/category/${deal.category}`} className="hover:text-white transition-colors">
+        <Link href={`/category/${deal.category}`} className="hover:text-zinc-900 transition-colors">
           {categoryMeta.label}
         </Link>
         <span>/</span>
-        <span className="text-slate-300 font-medium truncate max-w-xs sm:max-w-md">
-          {deal.title}
+        <span className="text-zinc-800 font-medium truncate max-w-sm">
+          {cleanMarkdown(deal.title)}
         </span>
       </nav>
 
-      {/* Main Deal Showcase Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-slate-900/70 border border-slate-800 rounded-3xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
-        {/* Left: Product Image Showcase */}
-        <div className="lg:col-span-5 flex flex-col items-center justify-center bg-white/5 rounded-2xl p-8 relative overflow-hidden border border-slate-800/80 min-h-[380px]">
+      {/* Main Deal Container */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-10 shadow-sm">
+        
+        {/* Left: Product Image Area */}
+        <div className="md:col-span-5 flex flex-col items-center justify-center bg-zinc-50/50 rounded-2xl p-8 relative border border-zinc-100 min-h-[340px]">
           {deal.discountPercentage > 0 && (
             <div className="absolute top-4 left-4 z-10">
-              <span className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-black bg-gradient-to-r from-red-600 to-amber-600 text-white shadow-xl">
-                <Zap className="w-4 h-4 fill-white" />
-                -{deal.discountPercentage}% RABATT
+              <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-zinc-900 text-white shadow-xs">
+                -{deal.discountPercentage}%
               </span>
             </div>
           )}
 
           {deal.isLoot && (
             <div className="absolute top-4 right-4 z-10">
-              <span className="px-3 py-1.5 rounded-full text-xs font-black bg-amber-500 text-slate-950 shadow-lg animate-pulse">
-                🔥 PREISFEHLER
+              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-200">
+                Preisfehler
               </span>
             </div>
           )}
@@ -152,109 +158,113 @@ export default function DealDetailPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={deal.imageUrl}
-            alt={deal.title}
-            className="max-h-[320px] max-w-full object-contain filter drop-shadow-2xl hover:scale-105 transition-transform duration-300 rounded-xl"
+            alt={cleanMarkdown(deal.title)}
+            className="max-h-[280px] max-w-full object-contain filter drop-shadow-sm hover:scale-105 transition-transform duration-300"
             onError={(e) => {
               e.currentTarget.src = '/banner.png';
             }}
           />
         </div>
 
-        {/* Right: Deal Details & Direct Affiliate Action */}
-        <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
+        {/* Right: Deal Details & Action */}
+        <div className="md:col-span-7 flex flex-col justify-between space-y-6">
           <div className="space-y-4">
-            {/* Meta badges */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${categoryMeta.bg} ${categoryMeta.color}`}>
-                {categoryMeta.icon} {categoryMeta.label}
+            {/* Meta */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-zinc-500 font-medium">
+                {categoryMeta.label}
               </span>
               {deal.isPrime && (
-                <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1">
-                  <Truck className="w-3.5 h-3.5" />
-                  Kostenlose Prime-Lieferung
+                <span className="px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-100 font-medium flex items-center gap-1 text-[11px]">
+                  <Truck className="w-3 h-3" />
+                  Prime Versand
                 </span>
               )}
-              <span className="text-xs text-slate-400 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
+              <span className="text-zinc-400 flex items-center gap-1 text-[11px]">
+                <Clock className="w-3 h-3" />
                 Geprüft {timeAgo(deal.createdAt)}
               </span>
             </div>
 
             {/* Title */}
-            <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight">
-              {deal.title}
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 leading-snug">
+              {cleanMarkdown(deal.title)}
             </h1>
 
-            {/* Ratings */}
-            {deal.rating && (
-              <div className="flex items-center gap-2 text-sm text-amber-400">
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.floor(deal.rating!)
-                          ? 'text-amber-400 fill-amber-400'
-                          : 'text-slate-600'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="font-bold text-white">{deal.rating.toFixed(1)} von 5</span>
-                {deal.ratingCount && (
-                  <span className="text-slate-400">({deal.ratingCount.toLocaleString('de-DE')} Bewertungen)</span>
-                )}
-              </div>
-            )}
-
             {/* Price Box */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-950 to-slate-900 border border-slate-800 space-y-2">
+            <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-1">
               <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-black text-emerald-400">
+                <span className="text-3xl font-bold text-zinc-900">
                   {formatPrice(deal.discountPrice, deal.currency)}
                 </span>
                 {deal.originalPrice > deal.discountPrice && (
-                  <span className="text-lg text-slate-400 line-through font-semibold">
-                    {formatPrice(deal.originalPrice, deal.currency)}
+                  <span className="text-sm text-zinc-400 line-through font-normal">
+                    {formatPrice(deal.originalPrice, deal.currency)} UVP
                   </span>
                 )}
               </div>
 
               {deal.savingsAmount > 0 && (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-                  <TrendingDown className="w-4 h-4 text-emerald-400" />
-                  <span>Deine Ersparnis: {formatPrice(deal.savingsAmount, deal.currency)} ({deal.discountPercentage}%)</span>
+                <div className="text-xs font-semibold text-emerald-600">
+                  Ersparnis: {formatPrice(deal.savingsAmount, deal.currency)} ({deal.discountPercentage}%)
                 </div>
               )}
             </div>
 
+            {/* Deal Specs Breakdown */}
+            <div className="grid grid-cols-3 gap-2 text-xs text-zinc-600 pt-1">
+              <div className="p-2.5 rounded-xl bg-zinc-50/80 border border-zinc-100 space-y-0.5">
+                <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">Händler</span>
+                <span className="font-semibold text-zinc-900">{deal.store || 'Amazon.de'}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-zinc-50/80 border border-zinc-100 space-y-0.5">
+                <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">ASIN</span>
+                <button
+                  onClick={copyAsin}
+                  className="font-mono font-medium text-zinc-900 flex items-center gap-1 hover:text-zinc-600 transition-colors"
+                  title="ASIN kopieren"
+                >
+                  <span>{deal.asin || 'N/A'}</span>
+                  {copiedAsin ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-zinc-400" />}
+                </button>
+              </div>
+              <div className="p-2.5 rounded-xl bg-zinc-50/80 border border-zinc-100 space-y-0.5">
+                <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider block">Verfügbarkeit</span>
+                <span className="font-medium text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Auf Lager
+                </span>
+              </div>
+            </div>
+
             {/* Description */}
-            <div className="space-y-2 text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-              <h3 className="font-bold text-white text-xs uppercase tracking-wider text-slate-400">Produktbeschreibung & Highlights</h3>
-              <p>{deal.description}</p>
+            <div className="space-y-1 text-xs text-zinc-600 leading-relaxed pt-1">
+              <h3 className="font-semibold text-zinc-900 text-xs">Beschreibung</h3>
+              <p className="whitespace-pre-line">{cleanMarkdown(deal.description)}</p>
             </div>
           </div>
 
-          {/* Call to Action Bar */}
-          <div className="space-y-4 pt-4 border-t border-slate-800">
+          {/* Action Bar */}
+          <div className="space-y-3 pt-4 border-t border-zinc-100">
             <a
               href={deal.affiliateUrl}
               target="_blank"
               rel="noopener noreferrer sponsored"
-              className="w-full flex items-center justify-center gap-2.5 py-4 px-6 rounded-2xl font-black text-base bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 shadow-xl shadow-orange-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold text-sm bg-zinc-900 hover:bg-zinc-800 text-white shadow-sm transition-colors"
             >
-              <ShoppingBag className="w-5 h-5" />
-              <span>Jetzt für {formatPrice(deal.discountPrice, deal.currency)} bei Amazon bestellen</span>
+              <span>Jetzt bei Amazon bestellen</span>
               <ExternalLink className="w-4 h-4 ml-1" />
             </a>
 
-            {/* Social Share & Compliance */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-              <SocialShare title={deal.title} url={currentUrl} />
-              <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Offizieller Amazon Partner-Link
-              </span>
+            <div className="flex items-center justify-between text-xs text-zinc-400 pt-1">
+              <button
+                onClick={copyPageLink}
+                className="flex items-center gap-1.5 hover:text-zinc-700 transition-colors"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
+                <span>{copiedLink ? 'Link kopiert!' : 'Deal teilen'}</span>
+              </button>
+              <span className="text-[11px]">Amazon Partner-Link</span>
             </div>
           </div>
         </div>
@@ -262,19 +272,19 @@ export default function DealDetailPage() {
 
       {/* Related Deals Section */}
       {relatedDeals.length > 0 && (
-        <section className="space-y-4 pt-8">
+        <section className="space-y-4 pt-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              Ähnliche Schnäppchen in {categoryMeta.label}
+            <h2 className="text-sm font-bold text-zinc-900 tracking-tight">
+              Ähnliche Angebote in {categoryMeta.label}
             </h2>
             <Link
               href={`/category/${deal.category}`}
-              className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+              className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 transition-colors"
             >
               Alle ansehen →
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {relatedDeals.map((item) => (
               <DealCard key={item.id} deal={item} />
             ))}

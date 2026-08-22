@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Deal } from '@/lib/types';
 import { getCategoryMeta } from '@/lib/utils';
 import { DealCard } from '@/components/DealCard';
-import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function CategoryPage() {
   const params = useParams();
@@ -36,50 +36,45 @@ export default function CategoryPage() {
   }, [slug]);
 
   return (
-    <div className="py-8 space-y-8">
-      {/* Header Banner */}
-      <div className="space-y-4">
+    <div className="py-4 space-y-6">
+      {/* Header */}
+      <div className="space-y-2">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Zurück zur Übersicht</span>
         </Link>
 
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-2xl shadow-lg">
-            {meta.icon}
-          </div>
-          <div>
-            <h1 className="text-3xl font-black text-white tracking-tight">
-              {meta.label} Deals
-            </h1>
-            <p className="text-xs text-slate-400">
-              {deals.length} aktuelle Angebote mit geprüften Amazon Rabatten
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
+            {meta.label} Deals
+          </h1>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {deals.length} aktuelle Angebote gefunden
+          </p>
         </div>
       </div>
 
       {/* Grid */}
       {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center space-y-4">
-          <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
-          <p className="text-sm text-slate-400">Lade {meta.label} Deals...</p>
+        <div className="py-24 flex flex-col items-center justify-center space-y-3">
+          <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
+          <p className="text-xs text-zinc-500">Lade Angebote...</p>
         </div>
       ) : deals.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {deals.map((deal) => (
             <DealCard key={deal.id} deal={deal} />
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-slate-800 p-8 space-y-3">
-          <p className="text-slate-400 text-sm">Aktuell keine Angebote in dieser Kategorie online.</p>
+        <div className="text-center py-16 bg-white rounded-2xl border border-zinc-200 p-8 space-y-3">
+          <p className="text-zinc-600 text-xs font-medium">Aktuell keine Angebote in dieser Kategorie online.</p>
           <Link
             href="/"
-            className="inline-block px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/20"
+            className="inline-block px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-semibold hover:bg-zinc-800 transition-colors"
           >
             Alle Deals ansehen
           </Link>

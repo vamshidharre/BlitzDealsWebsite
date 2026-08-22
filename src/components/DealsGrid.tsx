@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Deal, DealCategory } from '@/lib/types';
 import { DealCard } from './DealCard';
-import { Flame, SlidersHorizontal, Layers, Sparkles, AlertCircle } from 'lucide-react';
+import { Check, LayoutGrid, List } from 'lucide-react';
 
 interface DealsGridProps {
   initialDeals: Deal[];
@@ -12,14 +12,14 @@ interface DealsGridProps {
   onSelectCategory: (category: string) => void;
 }
 
-const CATEGORIES: { id: DealCategory; label: string; icon: string }[] = [
-  { id: 'all', label: 'Alle Deals', icon: '⚡' },
-  { id: 'loot', label: 'Preisfehler', icon: '🔥' },
-  { id: 'tech', label: 'Tech & PC', icon: '💻' },
-  { id: 'gaming', label: 'Gaming', icon: '🎮' },
-  { id: 'home', label: 'Haushalt & Küche', icon: '🏠' },
-  { id: 'audio', label: 'Audio & HiFi', icon: '🎧' },
-  { id: 'fashion', label: 'Mode', icon: '👗' }
+const CATEGORIES: { id: DealCategory; label: string }[] = [
+  { id: 'all', label: 'Alle' },
+  { id: 'loot', label: 'Preisfehler' },
+  { id: 'tech', label: 'Elektronik' },
+  { id: 'gaming', label: 'Gaming' },
+  { id: 'home', label: 'Haushalt' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'fashion', label: 'Mode' }
 ];
 
 export function DealsGrid({
@@ -28,8 +28,11 @@ export function DealsGrid({
   selectedCategory,
   onSelectCategory
 }: DealsGridProps) {
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'newest' | 'discount' | 'price_asc' | 'price_desc' | 'popular'>('newest');
-  const [minDiscount, setMinDiscount] = useState<number>(0);
+  const [primeOnly, setPrimeOnly] = useState(false);
+  const [highDiscountOnly, setHighDiscountOnly] = useState(false);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
 
   // Filter and sort deals dynamically
   const filteredDeals = useMemo(() => {
@@ -56,12 +59,22 @@ export function DealsGrid({
       }
     }
 
-    // 3. Minimum Discount Filter
-    if (minDiscount > 0) {
-      result = result.filter((d) => d.discountPercentage >= minDiscount);
+    // 3. Quick Filter: Prime Only
+    if (primeOnly) {
+      result = result.filter((d) => d.isPrime);
     }
 
-    // 4. Sorting
+    // 4. Quick Filter: High Discount (>= 40%)
+    if (highDiscountOnly) {
+      result = result.filter((d) => d.discountPercentage >= 40);
+    }
+
+    // 5. Budget Max Price Filter
+    if (maxPrice !== null) {
+      result = result.filter((d) => d.discountPrice <= maxPrice);
+    }
+
+    // 6. Sorting
     switch (sortBy) {
       case 'discount':
         result.sort((a, b) => b.discountPercentage - a.discountPercentage);
@@ -82,89 +95,165 @@ export function DealsGrid({
     }
 
     return result;
-  }, [initialDeals, searchQuery, selectedCategory, minDiscount, sortBy]);
+  }, [initialDeals, searchQuery, selectedCategory, primeOnly, highDiscountOnly, maxPrice, sortBy]);
 
   return (
-    <section className="space-y-6">
-      {/* Category Pills & Sorting Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-800">
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+    <section className="space-y-5">
+      {/* Category Tabs & Controls Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200/80 pb-3">
+        
+        {/* Category Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           {CATEGORIES.map((cat) => {
             const isActive = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => onSelectCategory(cat.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                   isActive
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-extrabold shadow-lg shadow-orange-500/20 scale-105'
-                    : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700'
+                    ? 'bg-zinc-900 text-white'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                 }`}
               >
-                <span>{cat.icon}</span>
-                <span>{cat.label}</span>
+                {cat.label}
               </button>
             );
           })}
         </div>
 
-        {/* Sort & Filter Controls */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+        {/* View Switcher & Sort */}
+        <div className="flex items-center gap-2 text-xs">
+          {/* Grid / List View Toggle */}
+          <div className="flex items-center bg-zinc-100 p-0.5 rounded-lg border border-zinc-200">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1 rounded-md transition-colors ${
+                viewMode === 'grid' ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'
+              }`}
+              title="Kachelansicht"
             >
-              <option value="newest">🕒 Neueste zuerst</option>
-              <option value="discount">💥 Höchster Rabatt %</option>
-              <option value="popular">🔥 Beliebteste</option>
-              <option value="price_asc">💶 Günstigster Preis</option>
-              <option value="price_desc">💎 Höchster Preis</option>
-            </select>
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-1 rounded-md transition-colors ${
+                viewMode === 'list' ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'
+              }`}
+              title="Listenansicht"
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <div className="text-xs text-slate-400 font-medium">
-            <span className="text-slate-200 font-bold">{filteredDeals.length}</span> Deals
-          </div>
+          {/* Sort Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 text-xs rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
+          >
+            <option value="newest">Neueste</option>
+            <option value="discount">Rabatt %</option>
+            <option value="popular">Beliebt</option>
+            <option value="price_asc">Preis aufsteigend</option>
+            <option value="price_desc">Preis absteigend</option>
+          </select>
         </div>
       </div>
 
-      {/* Deals Grid */}
+      {/* Secondary Fast-Filters Bar: Prime, Rabatt, Budget Ranges */}
+      <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-600">
+        <span className="text-[11px] text-zinc-400 font-medium mr-1">Filter:</span>
+        
+        {/* Prime Toggle */}
+        <button
+          onClick={() => setPrimeOnly(!primeOnly)}
+          className={`px-2.5 py-1 rounded-lg font-medium border transition-colors flex items-center gap-1 ${
+            primeOnly
+              ? 'bg-zinc-900 text-white border-zinc-900'
+              : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+          }`}
+        >
+          {primeOnly && <Check className="w-3 h-3" />}
+          <span>Prime</span>
+        </button>
+
+        {/* High Discount Toggle */}
+        <button
+          onClick={() => setHighDiscountOnly(!highDiscountOnly)}
+          className={`px-2.5 py-1 rounded-lg font-medium border transition-colors flex items-center gap-1 ${
+            highDiscountOnly
+              ? 'bg-zinc-900 text-white border-zinc-900'
+              : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+          }`}
+        >
+          {highDiscountOnly && <Check className="w-3 h-3" />}
+          <span>≥ 40%</span>
+        </button>
+
+        {/* Budget Chips */}
+        {[25, 50, 100].map((budget) => {
+          const isSelected = maxPrice === budget;
+          return (
+            <button
+              key={budget}
+              onClick={() => setMaxPrice(isSelected ? null : budget)}
+              className={`px-2.5 py-1 rounded-lg font-medium border transition-colors ${
+                isSelected
+                  ? 'bg-zinc-900 text-white border-zinc-900'
+                  : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+              }`}
+            >
+              &lt; {budget} €
+            </button>
+          );
+        })}
+
+        {(primeOnly || highDiscountOnly || maxPrice !== null) && (
+          <button
+            onClick={() => {
+              setPrimeOnly(false);
+              setHighDiscountOnly(false);
+              setMaxPrice(null);
+            }}
+            className="text-[11px] text-zinc-400 hover:text-zinc-700 underline ml-2"
+          >
+            Zurücksetzen
+          </button>
+        )}
+      </div>
+
+      {/* Deals Rendering (Grid or List View) */}
       {filteredDeals.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-          {filteredDeals.map((deal) => (
-            <DealCard key={deal.id} deal={deal} />
-          ))}
-        </div>
-      ) : initialDeals.length === 0 ? (
-        <div className="text-center py-20 bg-slate-900/40 rounded-3xl border border-slate-800 p-8 space-y-4 shadow-xl">
-          <div className="relative w-14 h-14 mx-auto flex items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
-            <Sparkles className="w-7 h-7 animate-pulse" />
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredDeals.map((deal) => (
+              <DealCard key={deal.id} deal={deal} viewMode="grid" />
+            ))}
           </div>
-          <h3 className="text-xl font-bold text-slate-100">Live-Bot wartet auf neue Schnäppchen</h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-            Dein Affiliate-Bot scannt Telegram 24/7. Sobald neue Deals gefunden werden, werden sie vollautomatisch mit den echten Telegram-Bildern hier veröffentlicht!
-          </p>
-        </div>
+        ) : (
+          <div className="space-y-2.5">
+            {filteredDeals.map((deal) => (
+              <DealCard key={deal.id} deal={deal} viewMode="list" />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-slate-800 p-8 space-y-4">
-          <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-200">Keine Deals gefunden</h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">
-            Zu deiner Suchanfrage &quot;{searchQuery}&quot; in dieser Kategorie gibt es aktuell keine passenden Angebote.
+        <div className="text-center py-16 bg-white rounded-2xl border border-zinc-200 p-8 space-y-3">
+          <h3 className="text-sm font-semibold text-zinc-900">Keine Deals gefunden</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+            Passe deine Suche oder Filter an, um mehr Angebote zu sehen.
           </p>
           <button
             onClick={() => {
               onSelectCategory('all');
+              setPrimeOnly(false);
+              setHighDiscountOnly(false);
+              setMaxPrice(null);
             }}
-            className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/20"
+            className="px-3.5 py-1.5 rounded-lg bg-zinc-900 text-white text-xs font-medium hover:bg-zinc-800 transition-colors"
           >
-            Alle Kategorien anzeigen
+            Filter zurücksetzen
           </button>
         </div>
       )}
